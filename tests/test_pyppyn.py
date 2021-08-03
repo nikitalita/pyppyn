@@ -66,39 +66,42 @@ def test_process_config(configrep):
     assert configrep.process_config()
 
 
-def test_get_required(configrep):
+@pytest.fixture
+def pkg_reqs_no_extras():
+    """Return a list of required packages in minipippy, excluding "extras"."""
+    reqs = ["backoff", "click", "pyyaml"]
+    maj_ver = int(platform.python_version_tuple()[0])
+    min_ver = int(platform.python_version_tuple()[1])
+    if platform.system().lower() == "windows":
+        reqs.append("defusedxml")
+        reqs.append("pypiwin32")
+    elif platform.system().lower() == "linux" and maj_ver > 3 or (maj_ver == 3 and min_ver > 3):
+        # six has a compound marker
+        reqs.append("six")
+    elif maj_ver < 3:
+        reqs.append("futures")
+    elif maj_ver < 2 or (maj_ver == 2 and min_ver < 7):
+        reqs.append("wheel")
+    return reqs
+
+
+@pytest.fixture
+def pkg_reqs(pkg_reqs_no_extras):
+    """Return a list of required packages in minipippy, including "extras"."""
+    return pkg_reqs_no_extras + ["pytest", "flake8", "sphinx"]
+
+
+def test_get_required(configrep, pkg_reqs):
     """Test getting list of requirements, including extra packages
     (such as those marked with "test", "check", "docs")."""
-    if platform.system().lower() == "windows":
-        assert set(configrep.get_required()) == set(
-            [
-                "backoff",
-                "click",
-                "pyyaml",
-                "defusedxml",
-                "pypiwin32",
-                "six",
-                "pytest",
-                "flake8",
-                "sphinx",
-            ]
-        )
-    else:
-        assert set(configrep.get_required()) == set(
-            ["backoff", "click", "six", "pyyaml", "pytest", "flake8", "sphinx"]
-        )
+    assert set(configrep.get_required()) == set(pkg_reqs)
 
 
-def test_get_required_no_extras(configrep):
+def test_get_required_no_extras(configrep, pkg_reqs_no_extras):
     """Test getting list of requirements."""
-    if platform.system().lower() == "windows":
-        assert set(configrep.get_required(include_extras_require=False)) == set(
-            ["backoff", "click", "pyyaml", "defusedxml", "pypiwin32", "six"]
-        )
-    else:
-        assert set(configrep.get_required(include_extras_require=False)) == set(
-            ["backoff", "click", "six", "pyyaml"]
-        )
+    assert set(configrep.get_required(include_extras_require=False)) == set(
+        pkg_reqs_no_extras
+    )
 
 
 def test_install_package():

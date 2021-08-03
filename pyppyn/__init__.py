@@ -42,6 +42,7 @@ import subprocess
 import sys
 import uuid
 import zipfile
+from packaging import markers
 
 __version__ = "0.4.0"
 
@@ -327,9 +328,12 @@ class ConfigRep:
             marker_parts[i] = mark_part.strip().strip('"').strip("'").strip()
 
         if len(marker_parts) != 3:
-            logger.info("Unsupported marker [%s]: %s", package, marker)
-            self.reqs["unparsed"].append(package)
-
+            # if the marker is valid for this environment, put it in unparsed
+            # otherwise, put it in "other"
+            if markers.Marker(marker).evaluate():
+                self.reqs["unparsed"].append(package)
+            else:
+                self.reqs["other"].append(package)
         elif (
             marker_parts[0] == "platform_system"
             and marker_parts[1] == "=="
@@ -367,11 +371,18 @@ class ConfigRep:
                 marker_parts[2]
             ):
                 self.reqs["python"].append(package)
+            else:
+                self.reqs["other"].append(package)
 
         elif marker_parts[0] == "extra":
             self.reqs["extra"].append(package)
         else:
-            self.reqs["unparsed"].append(package)
+            # if the marker is valid for this environment, put it in unparsed
+            # otherwise, put it in "other"
+            if markers.Marker(marker).evaluate():
+                self.reqs["unparsed"].append(package)
+            else:
+                self.reqs["other"].append(package)
 
     def load_config(self):
         """Load the config file into data structures."""
